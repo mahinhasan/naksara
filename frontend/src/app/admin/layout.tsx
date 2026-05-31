@@ -10,16 +10,15 @@ import {
   TrendingUp
 } from 'lucide-react';
 
+import Logo from '@/components/Logo';
+
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex min-h-screen bg-stone-100 font-sans">
       {/* Sidebar */}
       <aside className="w-64 bg-black text-white p-6 flex flex-col gap-8">
         <div className="flex items-center gap-3 px-2">
-          <div className="w-8 h-8 bg-white rounded-full flex items-center justify-center">
-            <span className="text-black font-serif font-bold">H</span>
-          </div>
-          <span className="text-lg font-serif tracking-widest uppercase">Heritage</span>
+          <Logo light />
         </div>
 
         <nav className="flex flex-col gap-2">

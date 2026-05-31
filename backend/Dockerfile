@@ -31,5 +31,5 @@ COPY --from=builder /app/prisma ./prisma
 
 EXPOSE 4000
 
-# Push schema to DB then start the app
-CMD ["sh", "-c", "npx prisma db push --accept-data-loss && node dist/main"]
+# Push schema to DB then seed and start the app
+CMD ["sh", "-c", "npx prisma db push --accept-data-loss && npx prisma db seed && node dist/main"]

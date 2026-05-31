@@ -8,7 +8,7 @@ import { Permissions } from '../../common/decorators/permissions.decorator';
 
 @Controller('admin')
 @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
-@Roles('ADMIN', 'EDITOR')
+@Roles('ADMIN', 'EDITOR', 'EMPLOYEE')
 export class AdminController {
   constructor(private readonly adminService: AdminService) {}
 
@@ -64,10 +64,54 @@ export class AdminController {
     return this.adminService.toggleUserStatus(id);
   }
 
+  @Get('products')
+  @Permissions('READ:Product')
+  async getProducts(
+    @Query('page') page?: number,
+    @Query('limit') limit?: number,
+    @Query('search') search?: string,
+  ) {
+    return this.adminService.getProducts({
+      page: page ? Number(page) : undefined,
+      limit: limit ? Number(limit) : undefined,
+      search,
+    });
+  }
+
+  @Get('products/:id')
+  @Permissions('READ:Product')
+  async getProduct(@Param('id') id: string) {
+    return this.adminService.getProductById(id);
+  }
+
   @Post('products')
   @Permissions('CREATE:Product')
   async createProduct(@Body() data: any) {
     return this.adminService.createProduct(data);
+  }
+
+  @Patch('products/:id')
+  @Permissions('UPDATE:Product')
+  async updateProduct(@Param('id') id: string, @Body() data: any) {
+    return this.adminService.updateProduct(id, data);
+  }
+
+  @Delete('products/:id')
+  @Permissions('DELETE:Product')
+  async deleteProduct(@Param('id') id: string) {
+    return this.adminService.deleteProduct(id);
+  }
+
+  @Patch('products/:id/stock')
+  @Permissions('UPDATE:Product')
+  async updateStock(@Param('id') id: string, @Body('quantity') quantity: number) {
+    return this.adminService.updateStock(id, Number(quantity));
+  }
+
+  @Get('categories')
+  @Permissions('READ:Product')
+  async getCategories() {
+    return this.adminService.getCategories();
   }
 
   @Post('categories')
@@ -76,10 +120,16 @@ export class AdminController {
     return this.adminService.createCategory(data);
   }
 
-  @Patch('products/:id/stock')
+  @Patch('categories/:id')
   @Permissions('UPDATE:Product')
-  async updateStock(@Param('id') id: string, @Body('quantity') quantity: number) {
-    return this.adminService.updateStock(id, Number(quantity));
+  async updateCategory(@Param('id') id: string, @Body() data: any) {
+    return this.adminService.updateCategory(id, data);
+  }
+
+  @Delete('categories/:id')
+  @Permissions('DELETE:Product')
+  async deleteCategory(@Param('id') id: string) {
+    return this.adminService.deleteCategory(id);
   }
 
   // --- Dynamic Permission Management ---

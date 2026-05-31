@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCartStore } from "@/store/useCartStore";
 import { ShoppingBag, User, Search } from "lucide-react";
+import Logo from "./Logo";
 
 export default function Navbar() {
   const totalItems = useCartStore((state) => state.totalItems());
@@ -12,8 +13,8 @@ export default function Navbar() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
           <div className="flex-shrink-0 flex items-center">
-            <Link href="/" className="text-2xl font-bold tracking-tighter text-gray-900">
-              HERITAGE
+            <Link href="/" className="hover:opacity-85 transition-opacity">
+              <Logo />
             </Link>
           </div>
 

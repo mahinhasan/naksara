@@ -1,13 +1,13 @@
 import { Metadata } from "next";
 
 export const siteConfig = {
-  name: "HERITAGE | Premium Artisan Goods",
+  name: "Naksara | Premium Artisan Goods",
   description: "Authentic craftsmanship for modern living. Shop our curated collection of premium artisan products.",
-  url: "https://heritage-premium.com",
-  ogImage: "https://heritage-premium.com/og.jpg",
+  url: "https://naksara.com",
+  ogImage: "https://naksara.com/og.jpg",
   links: {
-    twitter: "https://twitter.com/heritage",
-    github: "https://github.com/heritage",
+    twitter: "https://twitter.com/naksara",
+    github: "https://github.com/naksarahasan",
   },
 };
 
@@ -41,7 +41,7 @@ export function constructMetadata({
       title,
       description,
       images: [image],
-      creator: "@heritage",
+      creator: "@naksara",
     },
     icons,
     metadataBase: new URL(siteConfig.url),

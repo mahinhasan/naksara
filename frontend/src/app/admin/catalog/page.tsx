@@ -11,6 +11,7 @@ interface Product {
   price: number;
   stockQuantity: number;
   isActive: boolean;
+  categoryId?: string;
   category?: { name: string };
   images?: { url: string }[];
 }
@@ -33,6 +34,10 @@ export default function AdminCatalog() {
     categoryId: '',
     imageUrl: ''
   });
+
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
+  const [newCategory, setNewCategory] = useState({ name: '', description: '' });
 
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
@@ -63,31 +68,97 @@ export default function AdminCatalog() {
     }
   };
 
-  const handleCreateProduct = async (e: React.FormEvent) => {
+  const handleSaveProduct = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`${apiUrl}/admin/products`, {
+      const payload = {
+        name: newProduct.name,
+        description: newProduct.description,
+        price: parseFloat(newProduct.price),
+        stockQuantity: parseInt(newProduct.stockQuantity),
+        categoryId: newProduct.categoryId,
+        images: newProduct.imageUrl ? [newProduct.imageUrl] : [],
+      };
+
+      let response;
+      if (editingProduct) {
+        // Edit existing product
+        response = await fetch(`${apiUrl}/admin/products/${editingProduct.id}`, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify(payload)
+        });
+      } else {
+        // Create new product
+        response = await fetch(`${apiUrl}/admin/products`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify(payload)
+        });
+      }
+
+      if (response.ok) {
+        setIsModalOpen(false);
+        setEditingProduct(null);
+        setNewProduct({ name: '', description: '', price: '', stockQuantity: '', categoryId: '', imageUrl: '' });
+        fetchProducts();
+      } else {
+        const errorData = await response.json();
+        alert(`Error: ${errorData.message || 'Operation failed'}`);
+      }
+    } catch (error) {
+      console.error('Error saving product:', error);
+    }
+  };
+
+  const handleDeleteProduct = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this product?')) return;
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${apiUrl}/admin/products/${id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      if (response.ok) {
+        fetchProducts();
+      } else {
+        alert('Failed to delete product. Check your permissions.');
+      }
+    } catch (error) {
+      console.error('Error deleting product:', error);
+    }
+  };
+
+  const handleCreateCategory = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${apiUrl}/admin/categories`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({
-          ...newProduct,
-          price: parseFloat(newProduct.price),
-          stockQuantity: parseInt(newProduct.stockQuantity),
-          images: newProduct.imageUrl ? [newProduct.imageUrl] : []
-        })
+        body: JSON.stringify(newCategory)
       });
-
       if (response.ok) {
-        setIsModalOpen(false);
-        setNewProduct({ name: '', description: '', price: '', stockQuantity: '', categoryId: '', imageUrl: '' });
-        fetchProducts();
+        setIsCategoryModalOpen(false);
+        setNewCategory({ name: '', description: '' });
+        fetchCategories();
+      } else {
+        alert('Failed to create category.');
       }
     } catch (error) {
-      console.error('Error creating product:', error);
+      console.error('Error creating category:', error);
     }
   };
 
@@ -97,25 +168,84 @@ export default function AdminCatalog() {
     <div className="flex flex-col gap-6">
       <div className="flex justify-between items-center">
         <h2 className="text-xl font-serif">Inventory & Product Catalog</h2>
-        <button 
-          onClick={() => setIsModalOpen(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-black text-white rounded-lg text-xs font-bold uppercase tracking-widest hover:bg-stone-800 transition-all shadow-sm"
-        >
-          <Plus size={14} /> Add New Product
-        </button>
+        <div className="flex gap-3">
+          <button 
+            onClick={() => setIsCategoryModalOpen(true)}
+            className="flex items-center gap-2 px-4 py-2 border border-stone-300 bg-white text-stone-700 rounded-lg text-xs font-bold uppercase tracking-widest hover:bg-stone-50 transition-all shadow-sm"
+          >
+            <Plus size={14} /> Add Category
+          </button>
+          <button 
+            onClick={() => setIsModalOpen(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-black text-white rounded-lg text-xs font-bold uppercase tracking-widest hover:bg-stone-800 transition-all shadow-sm"
+          >
+            <Plus size={14} /> Add New Product
+          </button>
+        </div>
       </div>
 
-      {/* Add Product Modal */}
+      {/* Add Category Modal */}
+      {isCategoryModalOpen && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl w-full max-w-md overflow-hidden shadow-2xl">
+            <div className="px-6 py-4 border-b border-stone-100 flex justify-between items-center bg-stone-50">
+              <h3 className="font-serif text-lg">Add New Category</h3>
+              <button onClick={() => setIsCategoryModalOpen(false)} className="text-stone-400 hover:text-black">
+                <X size={20} />
+              </button>
+            </div>
+            <form onSubmit={handleCreateCategory} className="p-6 space-y-4">
+              <div>
+                <label className="block text-[10px] font-bold uppercase tracking-widest text-stone-400 mb-1">Category Name</label>
+                <input 
+                  type="text" 
+                  required
+                  value={newCategory.name}
+                  onChange={e => setNewCategory({...newCategory, name: e.target.value})}
+                  className="w-full p-2 bg-stone-50 border border-stone-200 rounded-lg text-sm" 
+                  placeholder="e.g. Handicrafts"
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold uppercase tracking-widest text-stone-400 mb-1">Description</label>
+                <textarea 
+                  value={newCategory.description}
+                  onChange={e => setNewCategory({...newCategory, description: e.target.value})}
+                  className="w-full p-2 bg-stone-50 border border-stone-200 rounded-lg text-sm h-24" 
+                  placeholder="Category details..."
+                />
+              </div>
+              <div className="pt-4 flex gap-3">
+                <button 
+                  type="button"
+                  onClick={() => setIsCategoryModalOpen(false)}
+                  className="flex-1 px-4 py-2 border border-stone-200 rounded-lg text-xs font-bold uppercase tracking-widest hover:bg-stone-50 transition-all"
+                >
+                  Cancel
+                </button>
+                <button 
+                  type="submit"
+                  className="flex-1 px-4 py-2 bg-black text-white rounded-lg text-xs font-bold uppercase tracking-widest hover:bg-stone-800 transition-all shadow-md"
+                >
+                  Create Category
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Add/Edit Product Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl w-full max-w-lg overflow-hidden shadow-2xl">
             <div className="px-6 py-4 border-b border-stone-100 flex justify-between items-center bg-stone-50">
-              <h3 className="font-serif text-lg">Add New Product</h3>
-              <button onClick={() => setIsModalOpen(false)} className="text-stone-400 hover:text-black">
+              <h3 className="font-serif text-lg">{editingProduct ? 'Edit Product' : 'Add New Product'}</h3>
+              <button onClick={() => { setIsModalOpen(false); setEditingProduct(null); }} className="text-stone-400 hover:text-black">
                 <X size={20} />
               </button>
             </div>
-            <form onSubmit={handleCreateProduct} className="p-6 space-y-4">
+            <form onSubmit={handleSaveProduct} className="p-6 space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div className="col-span-2">
                   <label className="block text-[10px] font-bold uppercase tracking-widest text-stone-400 mb-1">Product Name</label>
@@ -196,7 +326,7 @@ export default function AdminCatalog() {
               <div className="pt-4 flex gap-3">
                 <button 
                   type="button"
-                  onClick={() => setIsModalOpen(false)}
+                  onClick={() => { setIsModalOpen(false); setEditingProduct(null); }}
                   className="flex-1 px-4 py-2 border border-stone-200 rounded-lg text-xs font-bold uppercase tracking-widest hover:bg-stone-50 transition-all"
                 >
                   Cancel
@@ -205,7 +335,7 @@ export default function AdminCatalog() {
                   type="submit"
                   className="flex-1 px-4 py-2 bg-black text-white rounded-lg text-xs font-bold uppercase tracking-widest hover:bg-stone-800 transition-all shadow-md"
                 >
-                  Create Product
+                  {editingProduct ? 'Save Changes' : 'Create Product'}
                 </button>
               </div>
             </form>
@@ -261,10 +391,27 @@ export default function AdminCatalog() {
                   </td>
                   <td className="px-6 py-4 text-right">
                     <div className="flex justify-end gap-2">
-                      <button className="p-2 text-stone-400 hover:text-black hover:bg-stone-100 rounded-lg transition-all">
+                      <button 
+                        onClick={() => {
+                          setEditingProduct(product);
+                          setNewProduct({
+                            name: product.name,
+                            description: product.description,
+                            price: product.price.toString(),
+                            stockQuantity: product.stockQuantity.toString(),
+                            categoryId: product.categoryId || '',
+                            imageUrl: product.images?.[0]?.url || ''
+                          });
+                          setIsModalOpen(true);
+                        }}
+                        className="p-2 text-stone-400 hover:text-black hover:bg-stone-100 rounded-lg transition-all"
+                      >
                         <Edit3 size={16} />
                       </button>
-                      <button className="p-2 text-stone-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all">
+                      <button 
+                        onClick={() => handleDeleteProduct(product.id)}
+                        className="p-2 text-stone-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
+                      >
                         <Trash2 size={16} />
                       </button>
                     </div>

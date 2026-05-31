@@ -22,10 +22,18 @@ export default function AdminDashboard() {
 
   const fetchDashboardData = async () => {
     try {
+      const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+      const headers: HeadersInit = {
+        'Content-Type': 'application/json',
+      };
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
       const [statsRes, ordersRes, stockRes] = await Promise.all([
-        fetch(`${apiUrl}/admin/dashboard/stats`),
-        fetch(`${apiUrl}/admin/orders?limit=5`),
-        fetch(`${apiUrl}/catalog/products?limit=5&maxStock=10`) // Assume maxStock filter exists or similar
+        fetch(`${apiUrl}/admin/stats`, { headers }),
+        fetch(`${apiUrl}/admin/orders?limit=5`, { headers }),
+        fetch(`${apiUrl}/catalog/products?limit=5`) // public route, no token needed
       ]);
 
       const statsData = await statsRes.json();
@@ -33,14 +41,16 @@ export default function AdminDashboard() {
       const stockData = await stockRes.json();
 
       setStats([
-        { label: 'Total Revenue', value: `$${statsData.totalRevenue?.toLocaleString() || '0'}`, icon: DollarSign, change: `${statsData.revenueChange || 0}%`, color: 'bg-emerald-50 text-emerald-600' },
-        { label: 'Daily Orders', value: statsData.dailyOrders?.toString() || '0', icon: ShoppingBag, change: `${statsData.ordersChange || 0}%`, color: 'bg-blue-50 text-blue-600' },
-        { label: 'Active Customers', value: statsData.totalCustomers?.toLocaleString() || '0', icon: Users, change: `${statsData.customersChange || 0}%`, color: 'bg-purple-50 text-purple-600' },
+        { label: 'Total Revenue', value: `$${(statsData.totalRevenue || 0).toLocaleString()}`, icon: DollarSign, change: `${statsData.revenueChange || 0}%`, color: 'bg-emerald-50 text-emerald-600' },
+        { label: 'Daily Orders', value: (statsData.dailyOrders || 0).toString(), icon: ShoppingBag, change: `${statsData.ordersChange || 0}%`, color: 'bg-blue-50 text-blue-600' },
+        { label: 'Active Customers', value: (statsData.totalUsers || 0).toLocaleString(), icon: Users, change: `${statsData.customersChange || 0}%`, color: 'bg-purple-50 text-purple-600' },
         { label: 'Conversion Rate', value: `${statsData.conversionRate || 0}%`, icon: TrendingUp, change: `${statsData.conversionChange || 0}%`, color: 'bg-orange-50 text-orange-600' },
       ]);
 
       setRecentOrders(ordersData.items || []);
-      setLowStockProducts(stockData.items || []);
+      // Filter low stock (< 5) products on frontend dynamically
+      const lowStock = (stockData.items || []).filter((p: any) => p.stockQuantity < 10);
+      setLowStockProducts(lowStock);
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
     } finally {

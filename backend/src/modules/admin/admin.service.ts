@@ -161,15 +161,35 @@ export class AdminService {
   }
 
   // --- Catalog Management ---
+  async getProducts(query: { page?: number; limit?: number; search?: string }) {
+    const { page = 1, limit = 20, search } = query;
+    const skip = (page - 1) * limit;
+    const where = search
+      ? { OR: [{ name: { contains: search, mode: 'insensitive' as any } }, { sku: { contains: search, mode: 'insensitive' as any } }] }
+      : {};
+    const [items, total] = await Promise.all([
+      this.prisma.product.findMany({ where, skip, take: limit, orderBy: { createdAt: 'desc' }, include: { images: true, category: true } }),
+      this.prisma.product.count({ where }),
+    ]);
+    return { items, meta: { total, page, limit, totalPages: Math.ceil(total / limit) } };
+  }
+
+  async getProductById(id: string) {
+    const product = await this.prisma.product.findUnique({ where: { id }, include: { images: true, category: true } });
+    if (!product) throw new NotFoundException('Product not found');
+    return product;
+  }
+
   async createProduct(data: {
     name: string;
     description: string;
     price: number;
     stockQuantity: number;
     categoryId: string;
+    compareAtPrice?: number;
     images?: string[];
   }) {
-    const slug = data.name.toLowerCase().replace(/ /g, '-').replace(/[^\w-]+/g, '');
+    const slug = data.name.toLowerCase().replace(/ /g, '-').replace(/[^\w-]+/g, '') + '-' + Date.now();
     const sku = `SKU-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
     return this.prisma.product.create({
       data: {
@@ -178,33 +198,60 @@ export class AdminService {
         sku,
         description: data.description,
         price: data.price,
+        compareAtPrice: data.compareAtPrice,
         stockQuantity: data.stockQuantity,
         categoryId: data.categoryId,
         isActive: true,
-        images: data.images ? {
-          create: data.images.map(url => ({ url }))
-        } : undefined
+        images: data.images ? { create: data.images.map(url => ({ url })) } : undefined,
       },
-      include: { images: true, category: true }
+      include: { images: true, category: true },
     });
+  }
+
+  async updateProduct(id: string, data: {
+    name?: string;
+    description?: string;
+    price?: number;
+    compareAtPrice?: number;
+    stockQuantity?: number;
+    categoryId?: string;
+    isActive?: boolean;
+    isFeatured?: boolean;
+  }) {
+    const updateData: any = { ...data };
+    if (data.name) {
+      updateData.slug = data.name.toLowerCase().replace(/ /g, '-').replace(/[^\w-]+/g, '') + '-' + Date.now();
+    }
+    return this.prisma.product.update({ where: { id }, data: updateData, include: { images: true, category: true } });
+  }
+
+  async deleteProduct(id: string) {
+    await this.prisma.productImage.deleteMany({ where: { productId: id } });
+    return this.prisma.product.delete({ where: { id } });
   }
 
   async createCategory(data: { name: string; description?: string; parentId?: string }) {
-    const slug = data.name.toLowerCase().replace(/ /g, '-').replace(/[^\w-]+/g, '');
-    return this.prisma.category.create({
-      data: {
-        name: data.name,
-        slug,
-        description: data.description,
-        parentId: data.parentId
-      }
-    });
+    const slug = data.name.toLowerCase().replace(/ /g, '-').replace(/[^\w-]+/g, '') + '-' + Date.now();
+    return this.prisma.category.create({ data: { name: data.name, slug, description: data.description, parentId: data.parentId } });
+  }
+
+  async getCategories() {
+    return this.prisma.category.findMany({ include: { _count: { select: { products: true } } }, orderBy: { name: 'asc' } });
+  }
+
+  async updateCategory(id: string, data: { name?: string; description?: string; parentId?: string }) {
+    const updateData: any = { ...data };
+    if (data.name) {
+      updateData.slug = data.name.toLowerCase().replace(/ /g, '-').replace(/[^\w-]+/g, '') + '-' + Date.now();
+    }
+    return this.prisma.category.update({ where: { id }, data: updateData });
+  }
+
+  async deleteCategory(id: string) {
+    return this.prisma.category.delete({ where: { id } });
   }
 
   async updateStock(productId: string, quantity: number) {
-    return this.prisma.product.update({
-      where: { id: productId },
-      data: { stockQuantity: quantity },
-    });
+    return this.prisma.product.update({ where: { id: productId }, data: { stockQuantity: quantity } });
   }
 }
