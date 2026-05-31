@@ -1,0 +1,58 @@
+"use strict";
+var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
+    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
+    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
+    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
+    return c > 3 && r && Object.defineProperty(target, key, r), r;
+};
+var __metadata = (this && this.__metadata) || function (k, v) {
+    if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.AnalyticsService = void 0;
+const common_1 = require("@nestjs/common");
+const prisma_service_1 = require("../../infrastructure/prisma/prisma.service");
+let AnalyticsService = class AnalyticsService {
+    constructor(prisma) {
+        this.prisma = prisma;
+    }
+    async getRevenueStats() {
+        const orders = await this.prisma.order.findMany({
+            where: { status: 'PAID' },
+            select: { totalAmount: true, createdAt: true },
+        });
+        const totalRevenue = orders.reduce((sum, order) => sum + Number(order.totalAmount), 0);
+        const orderCount = orders.length;
+        return {
+            totalRevenue,
+            orderCount,
+            averageOrderValue: orderCount > 0 ? totalRevenue / orderCount : 0,
+        };
+    }
+    async getTopSellingProducts() {
+        const topProducts = await this.prisma.orderItem.groupBy({
+            by: ['productId'],
+            _sum: { quantity: true },
+            orderBy: { _sum: { quantity: 'desc' } },
+            take: 5,
+        });
+        const productDetails = await this.prisma.product.findMany({
+            where: { id: { in: topProducts.map(p => p.productId) } },
+        });
+        return topProducts.map(p => ({
+            ...productDetails.find(pd => pd.id === p.productId),
+            salesCount: p._sum.quantity,
+        }));
+    }
+    async trackEvent(type, metadata) {
+        return this.prisma.analyticsEvent.create({
+            data: { eventType: type, metadata },
+        });
+    }
+};
+exports.AnalyticsService = AnalyticsService;
+exports.AnalyticsService = AnalyticsService = __decorate([
+    (0, common_1.Injectable)(),
+    __metadata("design:paramtypes", [prisma_service_1.PrismaService])
+], AnalyticsService);
+//# sourceMappingURL=analytics.service.js.map

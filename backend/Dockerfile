@@ -1,5 +1,8 @@
 FROM node:18-alpine AS builder
 
+# Install OpenSSL for Prisma engine
+RUN apk add --no-cache openssl libc6-compat
+
 WORKDIR /app
 
 COPY package*.json ./
@@ -7,11 +10,17 @@ COPY prisma ./prisma/
 
 RUN npm install
 
+# Generate Prisma client
+RUN npx prisma generate
+
 COPY . .
 
 RUN npm run build
 
 FROM node:18-alpine
+
+# Install OpenSSL for Prisma engine
+RUN apk add --no-cache openssl libc6-compat
 
 WORKDIR /app
 
@@ -22,4 +31,5 @@ COPY --from=builder /app/prisma ./prisma
 
 EXPOSE 4000
 
-CMD ["npm", "run", "start:prod"]
+# Push schema to DB then start the app
+CMD ["sh", "-c", "npx prisma db push --accept-data-loss && node dist/main"]
